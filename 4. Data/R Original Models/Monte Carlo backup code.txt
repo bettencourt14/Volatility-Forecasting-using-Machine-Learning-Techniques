@@ -1,0 +1,769 @@
+###### MONTE CARLO SIMULATION #####################
+
+# Basically my intention was to create a predictive model for the period of 01/03 until 31/03,
+# but now I believe it would be easier just to adpat it to see which model predicted better
+
+
+# Data will be equal to previous model
+# number of simulations will be 50.000 for data points from 01/03 until 31/03
+
+
+#Do i need to change the values to above 100? otherwise the mean errors are not working properly
+
+
+
+
+options(scipen = 999)
+rm(list=ls(all=TRUE))
+
+#Libraries
+library(quantmod)
+library(xts)
+library(PerformanceAnalytics)
+library(rugarch)
+library(readxl)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(scales)
+library(zoo)
+library(gmodels)
+library(Metrics)
+
+
+
+#Daily prices for our indexes
+CAC <- read_excel("E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/^FCHI-excel.xlsx", col_types = c("date", "numeric", "numeric"))
+print(CAC)
+IBEX <- read_excel("E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/^IBEX.xlsx",col_types = c("date", "numeric", "numeric"))
+print(IBEX)
+DAX <- read_excel("E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/^GDAXI.xlsx",col_types = c("date", "numeric", "numeric"))
+print(DAX)
+PSI20 <- read_excel("E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/^PSI20.xlsx",col_types = c("date", "numeric", "numeric"))
+print(PSI20)
+
+
+#Plot (try to make 4 in one,and save them directly) 
+
+plot(CAC$Close,type="l",col="black",axes="T",xlab="Date",ylab="Closing Prices", main="CAC Daily Prices",lwd=2)
+plot(IBEX$Close, type="l",col="black",axes="T",main="IBEX Daily Prices",lwd=2,xlab="Date",ylab="Closing Prices")
+plot(DAX$Close, type="l",col="black",axes="T", main="DAX Daily Prices",lwd=2,xlab="Date",ylab="Closing Prices")
+plot(PSI20$Close, type="l",col="black",axes="T", main="PSI20 Daily Prices",lwd=2,xlab="Date",ylab="Closing Prices")
+
+# Missing Values  (Missing values should be replace by the average of the prices for that specific time frame) help!!!
+length(which((CAC$Close==0)))
+length(which((IBEX$Close==0)))
+length(which((DAX$Close==0)))
+length(which((PSI20$Close==0)))
+CAC$Close[CAC$Close==0]<-NA
+IBEX$Close[IBEX$Close==0]<-NA
+DAX$Close[DAX$Close==0]<-NA
+PSI20$Close[PSI20$Close==0]<-NA
+sum(is.na(CAC$Close))
+sum(is.na(IBEX$Close))
+sum(is.na(DAX$Close))
+sum(is.na(PSI20$Close))
+colSums(is.na(CAC))
+colSums(is.na(IBEX))
+colSums(is.na(DAX))
+colSums(is.na(PSI20))
+CAC<- na.omit(CAC)
+IBEX<- na.omit(IBEX)
+DAX<- na.omit(DAX)
+PSI20<- na.omit(PSI20)
+which(is.na(CAC))
+which(is.na(IBEX))
+which(is.na(DAX))
+which(is.na(PSI20))
+
+
+#number of days from 01/01/09 until 01-03-2022
+
+CAC1<-CAC[1:811,]
+tail(CAC1)
+CACDif<-nrow(CAC)-nrow(CAC1)
+CAC2<-CAC[nrow(CAC1)+1:CACDif,]
+print(CAC2)
+tail(CAC2)
+
+
+IBEX1<-IBEX[1:809,]
+tail(IBEX1)
+IBEXDif<-nrow(IBEX)-nrow(IBEX1)
+IBEXDif
+IBEX2<-IBEX[nrow(IBEX1)+1:IBEXDif,]
+print(IBEX2)
+tail(IBEX2)
+
+DAX1<-DAX[1:801,]
+tail(DAX1)
+DAXDif<-nrow(DAX)-nrow(DAX1)
+DAXDif
+DAX2<-DAX[nrow(DAX1)+1:DAXDif,]
+print(DAX2)
+tail(DAX2)
+
+
+PSI201<-PSI20[1:801,]
+tail(PSI201)
+PSI20Dif<-nrow(PSI20)-nrow(PSI201)
+PSI20Dif
+PSI202<-PSI20[nrow(PSI201)+1:PSI20Dif,]
+print(PSI202)
+tail(PSI202)
+
+
+
+# CAC Monte Carlo Part
+
+nsim=nrow(CAC2)+1
+
+CAC1_return=diff(log(CAC1$Close),na.rm=T)
+CAC1_return
+CAC1_mean_return=mean(CAC1_return)
+CAC1_mean_return
+CAC1_annualized_mean_return<- CAC1_mean_return*252
+CAC1_annualized_mean_return
+CAC1_SD= sqrt(var(CAC1_return))
+CAC1_annualized_SD_return<- CAC1_SD*sqrt(252)
+CAC1_annualized_SD_return
+
+CAC1_T<- nrow(CAC2)+1
+CAC1_T
+CAC1_S0=as.numeric(CAC1[nrow(CAC1),2])
+CAC1_S0
+
+mc_function=function(nsim,N,daily_mean,daily_sd,S0)
+{
+  Z=rnorm(nsim,0,1)
+WT=sqrt(N)*Z
+ST=S0*exp((daily_mean-0.5*daily_sd^2)*N+daily_sd*WT)
+
+
+output_list=list(ST=ST)
+output_list
+}
+
+set.seed(994)
+
+for (i in 1:500)
+{
+  a <- mc_function(nsim =nsim,N=CAC1_T,daily_mean =CAC1_mean_return,
+                   daily_sd = CAC1_SD, S0 = CAC1_S0)
+  a <- as.data.frame(a)
+  if(i==1)
+  {
+    CAC1_MC_results <- a 
+  }
+  else {
+    CAC1_MC_results <- cbind(CAC1_MC_results,a)
+  }
+  
+}
+
+
+CAC1_MC_results[1,]<- CAC1_S0
+CAC1_MC_results
+
+for (i in 1:ncol(CAC1_MC_results)){
+  colnames(CAC1_MC_results)[i] <- paste0('Sim ',i)
+                                }
+
+for(i in 1:ncol(CAC1_MC_results))
+{
+  b <- diff(log(CAC1_MC_results[,i]))
+  b <- as.data.frame(b)
+  if(i==1)
+  {
+    CAC1_MC_returns <- b
+  }
+  else {
+    CAC1_MC_returns <- cbind(CAC1_MC_returns,b)
+  }
+
+}
+
+for (i in 1:ncol(CAC1_MC_returns)){
+  colnames(CAC1_MC_returns)[i] <- paste0('Sim ',i)
+}
+
+
+View(CAC1_MC_returns)
+CAC1_MC_returns<- na.omit(CAC1_MC_returns)
+
+CAC2_actual_prices<-c(CAC1_S0,CAC2$Close)
+CAC2_actual_prices
+CAC2_actual_returns<-diff(log(CAC2_actual_prices))
+CAC2_actual_returns<- as.data.frame(CAC2_actual_returns)
+dim(CAC2_actual_returns)
+
+### Error for each day of the model by assuming daily price as correct one
+
+CAC2_daily_error_aux<- CAC1_MC_returns
+for (i in 1:ncol(CAC2_daily_error_aux)) {
+  CAC2_daily_error_aux[,i]<-CAC2_actual_returns
+}
+CAC2_daily_error_aux<-as.data.frame(CAC2_daily_error_aux)
+
+
+
+for (i in 1:ncol(CAC2_daily_error_aux)) {
+  d<- abs(CAC1_MC_returns[,i]-CAC2_daily_error_aux[,i])
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    CAC_error<-d
+    
+  }
+  else{
+    CAC_error<-cbind(CAC_error,d)
+  }
+}
+
+CAC_error    #use this for Error measurmments
+
+for (i in 1:ncol(CAC_error)){
+  colnames(CAC_error)[i] <- paste0('Sim ',i)
+}
+
+CAC_error_mode<-rowQuantiles(CAC1_MC_returns,prob=0.50)
+CAC_error<-as.data.frame(CAC_error)
+CAC_error_means<-rowMeans(CAC_error)
+CAC2_actual_returns
+
+hist(CAC2_actual_returns$CAC2_actual_returns,col='Dark Olive green',
+     breaks=seq(from=-0.2, to=0.2,by=0.03),
+     xlab= "Daily Returns",main="Actual Returns of CAC40 for March 2022",las=1,ylim=c(0,25))
+
+lines(density(CAC2_actual_returns$CAC2_actual_returns),type='l',col='red')
+plot(CAC2_actual_returns$CAC2_actual_returns,type='l',col='black',ylim=c(-0.15,0.15), 
+     xlab="Simulated Days",ylab="Closing Price",lwd=1, main='CAC40
+     Actual vs. Average Simulated Returns')
+lines(CAC_error_means,type='p',col='Dark blue')
+
+# add here the continuous chart
+
+
+####  CAC mean absolute error
+
+CAC_error_means<- as.data.frame(CAC_error_means)
+CAC_mean_absolute_error<- sum(CAC_error_means)
+CAC_mean_absolute_error
+
+#### CAC squared mean error      i..e by assuming mean as actual return for each day
+for (i in 1:ncol(CAC2_daily_error_aux)) {
+  d<- abs(CAC1_MC_returns[,i]-CAC2_daily_error_aux[,i])^2
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    CAC_error_squared<-d
+    
+  }
+  else{
+    CAC_error_squared<-cbind(CAC_error_squared,d)
+  }
+}
+
+CAC_error_squared
+CAC_error_squared_mean<-rowMeans(CAC_error_squared)
+CAC_squared_mean_error<- sum(CAC_error_squared_mean)
+CAC_root_squared_mean_error<- sqrt(CAC_squared_mean_error)
+CAC_root_squared_mean_error
+
+
+# IBEX Monte Carlo Part
+
+nsim=nrow(IBEX2)+1
+
+IBEX1_return=diff(log(IBEX1$Close),na.rm=T)
+IBEX1_return
+IBEX1_mean_return=mean(IBEX1_return)
+IBEX1_mean_return
+IBEX1_annualized_mean_return<- IBEX1_mean_return*252
+IBEX1_annualized_mean_return
+IBEX1_SD= sqrt(var(IBEX1_return))
+IBEX1_annualized_SD_return<- IBEX1_SD*sqrt(252)
+IBEX1_annualized_SD_return
+
+IBEX1_T<- nrow(IBEX2)+1
+IBEX1_T
+IBEX1_S0=as.numeric(IBEX1[nrow(IBEX1),2])
+IBEX1_S0
+
+mc_function=function(nsim,N,daily_mean,daily_sd,S0)
+{
+  Z=rnorm(nsim,0,1)
+  WT=sqrt(N)*Z
+  ST=S0*exp((daily_mean-0.5*daily_sd^2)*N+daily_sd*WT)
+  
+  
+  output_list=list(ST=ST)
+  output_list
+}
+
+set.seed(993)
+
+for (i in 1:500)
+{
+  a <- mc_function(nsim =nsim,N=IBEX1_T,daily_mean =IBEX1_mean_return,
+                   daily_sd = IBEX1_SD, S0 = IBEX1_S0)
+  a <- as.data.frame(a)
+  if(i==1)
+  {
+    IBEX1_MC_results <- a 
+  }
+  else {
+    IBEX1_MC_results <- cbind(IBEX1_MC_results,a)
+  }
+  
+}
+
+
+IBEX1_MC_results[1,]<- IBEX1_S0
+IBEX1_MC_results
+
+for (i in 1:ncol(IBEX1_MC_results)){
+  colnames(IBEX1_MC_results)[i] <- paste0('Sim ',i)
+}
+
+for(i in 1:ncol(IBEX1_MC_results))
+{
+  b <- diff(log(IBEX1_MC_results[,i]))
+  b <- as.data.frame(b)
+  if(i==1)
+  {
+    IBEX1_MC_returns <- b
+  }
+  else {
+    IBEX1_MC_returns <- cbind(IBEX1_MC_returns,b)
+  }
+  
+}
+
+for (i in 1:ncol(IBEX1_MC_returns)){
+  colnames(IBEX1_MC_returns)[i] <- paste0('Sim ',i)
+}
+
+
+View(IBEX1_MC_returns)
+IBEX1_MC_returns<- na.omit(IBEX1_MC_returns)
+
+IBEX2_actual_prices<-c(IBEX1_S0,IBEX2$Close)
+IBEX2_actual_prices
+IBEX2_actual_returns<-diff(log(IBEX2_actual_prices))
+IBEX2_actual_returns<- as.data.frame(IBEX2_actual_returns)
+dim(IBEX2_actual_returns)
+
+### Error for each day of the model by assuming daily price as correct one
+
+IBEX2_daily_error_aux<- IBEX1_MC_returns
+for (i in 1:ncol(IBEX2_daily_error_aux)) {
+  IBEX2_daily_error_aux[,i]<-IBEX2_actual_returns
+}
+IBEX2_daily_error_aux<-as.data.frame(IBEX2_daily_error_aux)
+
+
+
+for (i in 1:ncol(IBEX2_daily_error_aux)) {
+  d<- abs(IBEX1_MC_returns[,i]-IBEX2_daily_error_aux[,i])
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    IBEX_error<-d
+    
+  }
+  else{
+    IBEX_error<-cbind(IBEX_error,d)
+  }
+}
+
+IBEX_error    #use this for Error measurmments
+
+for (i in 1:ncol(IBEX_error)){
+  colnames(IBEX_error)[i] <- paste0('Sim ',i)
+}
+
+IBEX_error_mode<-rowQuantiles(IBEX1_MC_returns,prob=0.50)
+IBEX_error<-as.data.frame(IBEX_error)
+IBEX_error_means<-rowMeans(IBEX_error)
+IBEX2_actual_returns
+
+hist(IBEX2_actual_returns$IBEX2_actual_returns,col='Dark Olive green',
+     breaks=seq(from=-0.2, to=0.2,by=0.03),
+     xlab= "Daily Returns",main="Actual Returns of IBEX35 for March 2022",las=1,ylim=c(0,25))
+
+lines(density(IBEX2_actual_returns$IBEX2_actual_returns),type='l',col='red')
+plot(IBEX2_actual_returns$IBEX2_actual_returns,type='l',col='black',ylim=c(-0.15,0.15), 
+     xlab="Simulated Days",ylab="Closing Price",lwd=1, main='IBEX35
+     Actual vs. Average Simulated Returns')
+lines(IBEX_error_means,type='p',col='Dark blue')
+
+# add here the continuous chart
+
+
+####  IBEX mean absolute error
+
+IBEX_error_means<- as.data.frame(IBEX_error_means)
+IBEX_mean_absolute_error<- sum(IBEX_error_means)
+IBEX_mean_absolute_error
+
+#### IBEX squared mean error      i..e by assuming mean as actual return for each day
+for (i in 1:ncol(IBEX2_daily_error_aux)) {
+  d<- abs(IBEX1_MC_returns[,i]-IBEX2_daily_error_aux[,i])^2
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    IBEX_error_squared<-d
+    
+  }
+  else{
+    IBEX_error_squared<-cbind(IBEX_error_squared,d)
+  }
+}
+
+IBEX_error_squared
+IBEX_error_squared_mean<-rowMeans(IBEX_error_squared)
+IBEX_squared_mean_error<- sum(IBEX_error_squared_mean)
+IBEX_squared_mean_error
+IBEX_root_squared_mean_error<- sqrt(IBEX_squared_mean_error)
+IBEX_root_squared_mean_error
+
+
+
+
+# DAX Monte Carlo Part
+
+nsim=nrow(DAX2)+1
+
+DAX1_return=diff(log(DAX1$Close),na.rm=T)
+DAX1_return
+DAX1_mean_return=mean(DAX1_return)
+DAX1_mean_return
+DAX1_annualized_mean_return<- DAX1_mean_return*252
+DAX1_annualized_mean_return
+DAX1_SD= sqrt(var(DAX1_return))
+DAX1_annualized_SD_return<- DAX1_SD*sqrt(252)
+DAX1_annualized_SD_return
+
+DAX1_T<- nrow(DAX2)+1
+DAX1_T
+DAX1_S0=as.numeric(DAX1[nrow(DAX1),2])
+DAX1_S0
+
+mc_function=function(nsim,N,daily_mean,daily_sd,S0)
+{
+  Z=rnorm(nsim,0,1)
+  WT=sqrt(N)*Z
+  ST=S0*exp((daily_mean-0.5*daily_sd^2)*N+daily_sd*WT)
+  
+  
+  output_list=list(ST=ST)
+  output_list
+}
+
+set.seed(992)
+
+for (i in 1:500)
+{
+  a <- mc_function(nsim =nsim,N=DAX1_T,daily_mean =DAX1_mean_return,
+                   daily_sd = DAX1_SD, S0 = DAX1_S0)
+  a <- as.data.frame(a)
+  if(i==1)
+  {
+    DAX1_MC_results <- a 
+  }
+  else {
+    DAX1_MC_results <- cbind(DAX1_MC_results,a)
+  }
+  
+}
+
+
+DAX1_MC_results[1,]<- DAX1_S0
+DAX1_MC_results
+
+for (i in 1:ncol(DAX1_MC_results)){
+  colnames(DAX1_MC_results)[i] <- paste0('Sim ',i)
+}
+
+for(i in 1:ncol(DAX1_MC_results))
+{
+  b <- diff(log(DAX1_MC_results[,i]))
+  b <- as.data.frame(b)
+  if(i==1)
+  {
+    DAX1_MC_returns <- b
+  }
+  else {
+    DAX1_MC_returns <- cbind(DAX1_MC_returns,b)
+  }
+  
+}
+
+for (i in 1:ncol(DAX1_MC_returns)){
+  colnames(DAX1_MC_returns)[i] <- paste0('Sim ',i)
+}
+
+
+View(DAX1_MC_returns)
+DAX1_MC_returns<- na.omit(DAX1_MC_returns)
+
+DAX2_actual_prices<-c(DAX1_S0,DAX2$Close)
+DAX2_actual_prices
+DAX2_actual_returns<-diff(log(DAX2_actual_prices))
+DAX2_actual_returns<- as.data.frame(DAX2_actual_returns)
+dim(DAX2_actual_returns)
+
+### Error for each day of the model by assuming daily price as correct one
+
+DAX2_daily_error_aux<- DAX1_MC_returns
+for (i in 1:ncol(DAX2_daily_error_aux)) {
+  DAX2_daily_error_aux[,i]<-DAX2_actual_returns
+}
+DAX2_daily_error_aux<-as.data.frame(DAX2_daily_error_aux)
+
+
+
+for (i in 1:ncol(DAX2_daily_error_aux)) {
+  d<- abs(DAX1_MC_returns[,i]-DAX2_daily_error_aux[,i])
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    DAX_error<-d
+    
+  }
+  else{
+    DAX_error<-cbind(DAX_error,d)
+  }
+}
+
+DAX_error    #use this for Error measurmments
+
+for (i in 1:ncol(DAX_error)){
+  colnames(DAX_error)[i] <- paste0('Sim ',i)
+}
+
+DAX_error_mode<-rowQuantiles(DAX1_MC_returns,prob=0.50)
+DAX_error<-as.data.frame(DAX_error)
+DAX_error_means<-rowMeans(DAX_error)
+DAX2_actual_returns
+
+hist(DAX2_actual_returns$DAX2_actual_returns,col='Dark Olive green',
+     breaks=seq(from=-0.2, to=0.2,by=0.03),
+     xlab= "Daily Returns",main="Actual Returns of DAX40 for March 2022",las=1,ylim=c(0,25))
+
+lines(density(DAX2_actual_returns$DAX2_actual_returns),type='l',col='red')
+plot(DAX2_actual_returns$DAX2_actual_returns,type='l',col='black',ylim=c(-0.15,0.15), 
+     xlab="Simulated Days",ylab="Closing Price",lwd=1, main='DAX40
+     Actual vs. Average Simulated Returns')
+lines(DAX_error_means,type='p',col='Dark blue')
+
+# add here the continuous chart
+
+
+####  DAX mean absolute error
+
+DAX_error_means<- as.data.frame(DAX_error_means)
+DAX_mean_absolute_error<- sum(DAX_error_means)
+DAX_mean_absolute_error
+
+#### DAX squared mean error      i..e by assuming mean as actual return for each day
+for (i in 1:ncol(DAX2_daily_error_aux)) {
+  d<- abs(DAX1_MC_returns[,i]-DAX2_daily_error_aux[,i])^2
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    DAX_error_squared<-d
+    
+  }
+  else{
+    DAX_error_squared<-cbind(DAX_error_squared,d)
+  }
+}
+
+DAX_error_squared
+DAX_error_squared_mean<-rowMeans(DAX_error_squared)
+DAX_squared_mean_error<- sum(DAX_error_squared_mean)
+DAX_squared_mean_error
+DAX_root_squared_mean_error<- sqrt(DAX_squared_mean_error)
+DAX_root_squared_mean_error
+
+
+
+
+# PSI20 Monte Carlo Part
+
+nsim=nrow(PSI202)+1
+
+PSI201_return=diff(log(PSI201$Close),na.rm=T)
+PSI201_return
+PSI201_mean_return=mean(PSI201_return)
+PSI201_mean_return
+PSI201_annualized_mean_return<- PSI201_mean_return*252
+PSI201_annualized_mean_return
+PSI201_SD= sqrt(var(PSI201_return))
+PSI201_annualized_SD_return<- PSI201_SD*sqrt(252)
+PSI201_annualized_SD_return
+
+PSI201_T<- nrow(PSI202)+1
+PSI201_T
+PSI201_S0=as.numeric(PSI201[nrow(PSI201),2])
+PSI201_S0
+
+mc_function=function(nsim,N,daily_mean,daily_sd,S0)
+{
+  Z=rnorm(nsim,0,1)
+  WT=sqrt(N)*Z
+  ST=S0*exp((daily_mean-0.5*daily_sd^2)*N+daily_sd*WT)
+  
+  
+  output_list=list(ST=ST)
+  output_list
+}
+
+set.seed(991)
+
+for (i in 1:500)
+{
+  a <- mc_function(nsim =nsim,N=PSI201_T,daily_mean =PSI201_mean_return,
+                   daily_sd = PSI201_SD, S0 = PSI201_S0)
+  a <- as.data.frame(a)
+  if(i==1)
+  {
+    PSI201_MC_results <- a 
+  }
+  else {
+    PSI201_MC_results <- cbind(PSI201_MC_results,a)
+  }
+  
+}
+
+
+PSI201_MC_results[1,]<- PSI201_S0
+PSI201_MC_results
+
+for (i in 1:ncol(PSI201_MC_results)){
+  colnames(PSI201_MC_results)[i] <- paste0('Sim ',i)
+}
+
+for(i in 1:ncol(PSI201_MC_results))
+{
+  b <- diff(log(PSI201_MC_results[,i]))
+  b <- as.data.frame(b)
+  if(i==1)
+  {
+    PSI201_MC_returns <- b
+  }
+  else {
+    PSI201_MC_returns <- cbind(PSI201_MC_returns,b)
+  }
+  
+}
+
+for (i in 1:ncol(PSI201_MC_returns)){
+  colnames(PSI201_MC_returns)[i] <- paste0('Sim ',i)
+}
+
+
+View(PSI201_MC_returns)
+PSI201_MC_returns<- na.omit(PSI201_MC_returns)
+
+PSI202_actual_prices<-c(PSI201_S0,PSI202$Close)
+PSI202_actual_prices
+PSI202_actual_returns<-diff(log(PSI202_actual_prices))
+PSI202_actual_returns<- as.data.frame(PSI202_actual_returns)
+dim(PSI202_actual_returns)
+
+### Error for each day of the model by assuming daily price as correct one
+
+PSI202_daily_error_aux<- PSI201_MC_returns
+for (i in 1:ncol(PSI202_daily_error_aux)) {
+  PSI202_daily_error_aux[,i]<-PSI202_actual_returns
+}
+PSI202_daily_error_aux<-as.data.frame(PSI202_daily_error_aux)
+
+
+
+for (i in 1:ncol(PSI202_daily_error_aux)) {
+  d<- abs(PSI201_MC_returns[,i]-PSI202_daily_error_aux[,i])
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    PSI20_error<-d
+    
+  }
+  else{
+    PSI20_error<-cbind(PSI20_error,d)
+  }
+}
+
+PSI20_error    #use this for Error measurmments
+
+for (i in 1:ncol(PSI20_error)){
+  colnames(PSI20_error)[i] <- paste0('Sim ',i)
+}
+
+PSI20_error_mode<-rowQuantiles(PSI201_MC_returns,prob=0.50)
+PSI20_error<-as.data.frame(PSI20_error)
+PSI20_error_means<-rowMeans(PSI20_error)
+PSI202_actual_returns
+
+hist(PSI202_actual_returns$PSI202_actual_returns,col='Dark Olive green',
+     breaks=seq(from=-0.2, to=0.2,by=0.02),
+     xlab= "Daily Returns",main="Actual Returns of PSI20 for March 2022",las=1,ylim=c(0,25))
+
+lines(density(PSI202_actual_returns$PSI202_actual_returns),type='l',col='red')
+plot(PSI202_actual_returns$PSI202_actual_returns,type='l',col='black',ylim=c(-0.15,0.15), 
+     xlab="Simulated Days",ylab="Closing Price",lwd=1, main='PSI20
+     Actual vs. Average Simulated Returns')
+lines(PSI20_error_means,type='p',col='Dark blue')
+
+# add here the continuous chart
+
+
+####  PSI20 mean absolute error
+
+PSI20_error_means<- as.data.frame(PSI20_error_means)
+PSI20_mean_absolute_error<- sum(PSI20_error_means)
+PSI20_mean_absolute_error
+
+#### PSI20 squared mean error      i..e by assuming mean as actual return for each day
+for (i in 1:ncol(PSI202_daily_error_aux)) {
+  d<- abs(PSI201_MC_returns[,i]-PSI202_daily_error_aux[,i])^2
+  d<- as.data.frame(d)
+  
+  if (i==1) {
+    PSI20_error_squared<-d
+    
+  }
+  else{
+    PSI20_error_squared<-cbind(PSI20_error_squared,d)
+  }
+}
+
+PSI20_error_squared
+PSI20_error_squared_mean<-rowMeans(PSI20_error_squared)
+PSI20_squared_mean_error<- sum(PSI20_error_squared_mean)
+PSI20_squared_mean_error
+PSI20_root_squared_mean_error<- sqrt(PSI20_squared_mean_error)
+PSI20_root_squared_mean_error
+
+
+
+
+
+
+# table with all results
+
+firstcol<-c('Country Index','CAC40','IBEX35','DAX40','PSI20')
+secondcol<- c('Mean Absolute Error',CAC_mean_absolute_error,IBEX_mean_absolute_error
+              ,DAX_mean_absolute_error,PSI20_mean_absolute_error)
+thirdcol<- c('Squared Mean Error', CAC_squared_mean_error,IBEX_squared_mean_error,
+             DAX_squared_mean_error, PSI20_squared_mean_error)
+fourthcol<-c('Root Mean Squared Error', CAC_root_squared_mean_error,IBEX_root_squared_mean_error,
+             DAX_squared_mean_error,PSI20_root_squared_mean_error)
+
+
+df<- data.frame(firstcol,secondcol,thirdcol,fourthcol)
+df
+
