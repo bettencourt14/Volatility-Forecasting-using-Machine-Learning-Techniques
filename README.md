@@ -7,7 +7,7 @@ the models to be use under this analysis are the following:
 - GARCH-MIDAS, including low frequency variables
 - Support Vector Regression, including high freqeuncy variables
 - LSTM
-- Transformer
+
 
 Once the paper is submited and available on a public repository i will added it here.
 
