@@ -2,7 +2,7 @@ library(tidyverse)
 library(multDM)
 library(writexl)
 
-# Run this all at once, should be no less than 7 Min, if less make sure SVR runned
+# Run this all at once, should be no less than 9 Min, if less make sure SVR runned
 # not sure why, but run multiple times until SVR be on environment
 start1<-Sys.time()
 list.files(c("E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/R models/Error By Country/HSI"),
@@ -51,7 +51,7 @@ setwd('E:/Thesis Francisco Bettencourt/Tese Nov/4. Data/R models/Error By Countr
 
 # Run below to get data, do it once only
 
-#  write_xlsx(HSI_Table,"E://Thesis Francisco Bettencourt//Tese Nov//4. Data//R models//Error By Country//HSI//HSI_error.xlsx",col_names = T,format_headers = T,use_zip64 = FALSE)
+# write_xlsx(HSI_Table,"E://Thesis Francisco Bettencourt//Tese Nov//4. Data//R models//Error By Country//HSI//HSI_error.xlsx",col_names = T,format_headers = T,use_zip64 = FALSE)
 
 ########
 
